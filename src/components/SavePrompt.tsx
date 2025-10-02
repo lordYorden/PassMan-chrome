@@ -30,14 +30,16 @@ function SavePrompt({ domain, username, onSave, onDismiss }: SavePromptProps) {
           >
             <FaCheck />
             Save
-          </button>          <button
+          </button>{" "}
+          <button
             type="button"
             onClick={onDismiss}
             className="flex-1 bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-400 transition flex items-center justify-center gap-2"
           >
             <FaTimes />
             Not Now
-          </button>        </div>
+          </button>{" "}
+        </div>
       </div>
     </div>
   );

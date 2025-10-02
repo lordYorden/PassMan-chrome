@@ -68,7 +68,7 @@ function App() {
           chrome.storage.local.remove("_pending");
         }
       }
-    }
+    });
 
     chrome.storage.local.get(["masterPasswordVerifier"], (result) => {
       if (!result.masterPasswordVerifier) {
@@ -373,7 +373,7 @@ function App() {
         </div>
       </div>
 
-      {pendingCredentials && (
+      {(pendingCredentials && !isLocked) && (
         <SavePrompt
           domain={pendingCredentials.domain}
           username={pendingCredentials.username}
