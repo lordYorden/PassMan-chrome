@@ -22,14 +22,23 @@ function App() {
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    // Load saved passwords
-    chrome.storage.local.get(["passwords"], (result) => {
-      if (result.passwords) {
-        setPasswords(result.passwords);
-      }
+    //Load saved passwords from separate storage keys
+    chrome.storage.local.get(null, (result) => {
+      const loadedPasswords: PasswordEntry[] = [];
+      
+      //Filter and load only password entries (keys starting with "p")
+      Object.keys(result).forEach((key) => {
+        if (key.startsWith("p")) {
+          loadedPasswords.push(result[key]);
+        }
+      });
+      
+      //Sort by creation date (newest first)
+      loadedPasswords.sort((a, b) => b.createdAt - a.createdAt);
+      setPasswords(loadedPasswords);
     });
 
-    // Get current tab's domain
+    //Get current tab's domain
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.url) {
         try {
@@ -42,25 +51,31 @@ function App() {
     });
   }, []);
 
-  // Save passwords to Chrome storage
+  //Save passwords to Chrome storage (each entry separately)
   const savePasswords = (newPasswords: PasswordEntry[]) => {
-    chrome.storage.local.set({ passwords: newPasswords });
+    //Create an object with separate keys for each password
+    const storageData: { [key: string]: PasswordEntry } = {};
+    newPasswords.forEach((entry) => {
+      storageData[`p${entry.id}`] = entry;
+    });
+    
+    chrome.storage.local.set(storageData);
     setPasswords(newPasswords);
   };
 
-  // Get favicon URL for a domain
+  //Get favicon URL for a domain
   const getFaviconUrl = (domain: string): string => {
     try {
-      // Remove protocol if present
+      //Remove protocol if present
       const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-      // Use multiple favicon services as fallback
+      //Use multiple favicon services as fallback
       return `https://icons.duckduckgo.com/ip3/${cleanDomain}.ico`;
     } catch {
       return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
     }
   };
 
-  // Add new password entry
+  //Add new password entry
   const addPassword = () => {
     if (!domain || !username || !password) {
       alert("Please enter domain, username, and password");
@@ -68,7 +83,7 @@ function App() {
     }
 
     const newEntry: PasswordEntry = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       domain: domain,
       username: username,
       password: password,
@@ -83,13 +98,16 @@ function App() {
     setPassword("");
   };
 
-  // Delete password entry
+  //Delete password entry
   const deletePassword = (id: string) => {
+    //Remove the specific password entry from storage
+    chrome.storage.local.remove(`p${id}`);
+    
     const updatedPasswords = passwords.filter((p) => p.id !== id);
-    savePasswords(updatedPasswords);
+    setPasswords(updatedPasswords);
   };
 
-  // Toggle password visibility
+  //Toggle password visibility
   const togglePasswordVisibility = (id: string) => {
     setShowPassword((prev) => ({
       ...prev,
@@ -97,15 +115,15 @@ function App() {
     }));
   };
 
-  // Copy password to clipboard
+  //Copy password to clipboard
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
 
-  // Auto-fill credentials on the current page
+  //Auto-fill credentials on the current page
   const autoFillCredentials = async (entry: PasswordEntry) => {
     try {
-      // Get the active tab
+      //Get the active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       if (!tab.id) {
@@ -113,7 +131,7 @@ function App() {
         return;
       }
 
-      // Send message to content script to fill the form
+      //Send message to content script to fill the form
       chrome.tabs.sendMessage(
         tab.id,
         {
@@ -127,7 +145,7 @@ function App() {
             alert("Could not auto-fill. Make sure you're on a page with a login form.");
             console.error(chrome.runtime.lastError);
           } else if (response?.success) {
-            // Optional: Show success feedback
+            //Optional: Show success feedback
             console.log("Auto-filled successfully!");
           } else {
             alert(response?.message || "Could not find login fields on this page");
