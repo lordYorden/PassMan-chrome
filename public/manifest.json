@@ -13,5 +13,12 @@
     "default_popup": "index.html"
   },
   "permissions": ["scripting", "storage", "tabs"],
-  "host_permissions": ["http://*/*", "https://*/*"]
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["src/content.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }

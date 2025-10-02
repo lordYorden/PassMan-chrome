@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import passManLogo from "./assets/passman-logo.svg";
 import { FaMinus, FaPlus } from "react-icons/fa";
+import PasswordForm from "./components/PasswordForm";
+import PasswordItem from "./components/PasswordItem";
 
 interface PasswordEntry {
   id: string;
@@ -17,7 +19,6 @@ function App() {
   const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
   const [showForm, setShowForm] = useState(false);
 
-  // Load passwords from Chrome storage and get current tab domain
   useEffect(() => {
     // Load saved passwords
     chrome.storage.local.get(["passwords"], (result) => {
@@ -97,9 +98,45 @@ function App() {
     navigator.clipboard.writeText(text);
   };
 
+  // Auto-fill credentials on the current page
+  const autoFillCredentials = async (entry: PasswordEntry) => {
+    try {
+      // Get the active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab.id) {
+        alert("Could not find active tab");
+        return;
+      }
+
+      // Send message to content script to fill the form
+      chrome.tabs.sendMessage(
+        tab.id,
+        {
+          action: "autofill",
+          domain: entry.domain,
+          password: entry.password,
+        },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            alert("Could not auto-fill. Make sure you're on a page with a login form.");
+            console.error(chrome.runtime.lastError);
+          } else if (response?.success) {
+            // Optional: Show success feedback
+            console.log("Auto-filled successfully!");
+          } else {
+            alert(response?.message || "Could not find login fields on this page");
+          }
+        }
+      );
+    } catch (error) {
+      console.error("Error auto-filling:", error);
+      alert("An error occurred while trying to auto-fill");
+    }
+  };
+
   return (
     <div className="w-96 max-h-[600px] bg-gray-50">
-      {/* Header */}
       <div className="bg-sky-700 text-white p-4">
         <div className="flex flex-row justify-between items-start">
           <div>
@@ -119,34 +156,15 @@ function App() {
         </div>
       </div>
 
-      {/* Add Password Form */}
-      <div className={`p-4 bg-white shadow-md ${showForm ? '' : 'hidden'}`}>
-        <h2 className="text-lg font-semibold mb-3">Add New Password</h2>
-        <div className="flex flex-col gap-2">
-          <input
-            type="text"
-            placeholder="Domain (e.g., google.com)"
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
-          />
-          <button
-            onClick={addPassword}
-            className="bg-sky-700 text-white font-semibold py-2 px-4 rounded-lg hover:bg-sky-800 transition"
-          >
-            Add Password
-          </button>
-        </div>
-      </div>
+      <PasswordForm
+        domain={domain}
+        password={password}
+        showForm={showForm}
+        onDomainChange={setDomain}
+        onPasswordChange={setPassword}
+        onSubmit={addPassword}
+      />
 
-      {/* Password List */}
       <div className="p-4 overflow-y-auto max-h-[400px]">
         <h2 className="text-lg font-semibold mb-3">Saved Passwords ({passwords.length})</h2>
         {passwords.length === 0 ? (
@@ -157,59 +175,15 @@ function App() {
         ) : (
           <div className="flex flex-col gap-3">
             {passwords.map((entry) => (
-              <div
+              <PasswordItem
                 key={entry.id}
-                className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-md transition"
-              >
-                <div className="flex items-center gap-3">
-                  {/* Favicon */}
-                  <img
-                    src={entry.favicon}
-                    alt={`${entry.domain} favicon`}
-                    className="w-8 h-8 rounded"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 
-                        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23999'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z'/%3E%3C/svg%3E";
-                    }}
-                  />
-
-                  {/* Domain and Password */}
-                  <div className="flex-1">
-                    <div className="font-semibold text-gray-800">{entry.domain}</div>
-                    <div className="text-sm text-gray-600 flex items-center gap-2">
-                      <span className="font-mono">
-                        {showPassword[entry.id]
-                          ? entry.password
-                          : "•".repeat(entry.password.length)}
-                      </span>
-                      <button
-                        onClick={() => togglePasswordVisibility(entry.id)}
-                        className="text-sky-600 hover:text-sky-800 text-xs"
-                      >
-                        {showPassword[entry.id] ? "Hide" : "Show"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex flex-col gap-1">
-                    <button
-                      onClick={() => copyToClipboard(entry.password)}
-                      className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 transition"
-                      title="Copy password"
-                    >
-                      Copy
-                    </button>
-                    <button
-                      onClick={() => deletePassword(entry.id)}
-                      className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 transition"
-                      title="Delete"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
+                entry={entry}
+                isPasswordVisible={showPassword[entry.id] || false}
+                onToggleVisibility={() => togglePasswordVisibility(entry.id)}
+                onAutoFill={() => autoFillCredentials(entry)}
+                onCopy={() => copyToClipboard(entry.password)}
+                onDelete={() => deletePassword(entry.id)}
+              />
             ))}
           </div>
         )}
