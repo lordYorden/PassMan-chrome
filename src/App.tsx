@@ -4,12 +4,19 @@ import { FaMinus, FaPlus } from "react-icons/fa";
 import PasswordForm from "./components/PasswordForm";
 import PasswordItem from "./components/PasswordItem";
 import SavePrompt from "./components/SavePrompt";
+import MasterPasswordPrompt from "./components/MasterPasswordPrompt";
+import {
+  encryptPasswordEntry,
+  decryptPasswordEntry,
+  createPasswordVerifier,
+  verifyMasterPassword,
+  type EncryptedData,
+} from "./utils/crypto";
+import type { PasswordEntry } from "./types";
 
-interface PasswordEntry {
+interface StoredPasswordEntry {
   id: string;
-  domain: string;
-  username: string;
-  password: string;
+  encryptedData: EncryptedData;
   favicon: string;
   createdAt: number;
 }
@@ -34,19 +41,16 @@ function App() {
   const [pendingCredentials, setPendingCredentials] =
     useState<PendingCredentials | null>(null);
 
+  // Master password state
+  const [isLocked, setIsLocked] = useState(true);
+  const [isSetup, setIsSetup] = useState(false);
+  const [masterPassword, setMasterPassword] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | undefined>(undefined);
+
+  // Check if master password is set up
   useEffect(() => {
     //Load saved passwords from separate storage keys
     chrome.storage.local.get(null, (result) => {
-      const loadedPasswords: PasswordEntry[] = [];
-
-      Object.keys(result).forEach((key) => {
-        if (key.startsWith("p")) {
-          loadedPasswords.push(result[key]);
-        }
-      });
-
-      setPasswords(loadedPasswords);
-
       //Check for pending credentials from form submission
       if (result["_pending"]) {
         console.log(
@@ -64,9 +68,30 @@ function App() {
           chrome.storage.local.remove("_pending");
         }
       }
-    });
+    }
 
-    //Get current tab's domain
+    chrome.storage.local.get(["masterPasswordVerifier"], (result) => {
+      if (!result.masterPasswordVerifier) {
+        setIsSetup(true);
+        setIsLocked(true);
+      } else {
+        setIsSetup(false);
+        setIsLocked(true);
+      }
+    });
+    
+  }, []);
+
+  // Load and decrypt passwords when unlocked
+  useEffect(() => {
+    if (!isLocked && masterPassword) {
+      loadPasswords();
+    }
+    
+  }, [isLocked, masterPassword]);
+
+  // Get current tab's domain on mount
+  useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.url) {
         try {
@@ -80,13 +105,110 @@ function App() {
     });
   }, []);
 
-  //Save passwords to Chrome storage (each entry separately)
-  const savePasswords = (newPasswords: PasswordEntry[]) => {
-    //Create an object with separate keys for each password
-    const storageData: { [key: string]: PasswordEntry } = {};
-    newPasswords.forEach((entry) => {
-      storageData[`p${entry.id}`] = entry;
+  // Handle master password setup or unlock
+  const handleMasterPasswordSubmit = async (password: string) => {
+    setAuthError(undefined);
+
+    if (isSetup) {
+      // Setup: Create new master password
+      try {
+        const verifier = await createPasswordVerifier(password);
+        chrome.storage.local.set({ masterPasswordVerifier: verifier }, () => {
+          setMasterPassword(password);
+          setIsLocked(false);
+          setIsSetup(false);
+        });
+      } catch (error) {
+        setAuthError("Failed to create master password");
+      }
+    } else {
+      // Unlock: Verify master password
+      chrome.storage.local.get(["masterPasswordVerifier"], async (result) => {
+        if (!result.masterPasswordVerifier) {
+          setAuthError("Master password not set up");
+          return;
+        }
+
+        const isValid = await verifyMasterPassword(
+          result.masterPasswordVerifier,
+          password
+        );
+        if (isValid) {
+          setMasterPassword(password);
+          setIsLocked(false);
+          setAuthError(undefined);
+        } else {
+          setAuthError("Incorrect master password");
+        }
+      });
+    }
+  };
+
+  // Load and decrypt passwords
+  const loadPasswords = async () => {
+    if (!masterPassword) return;
+
+    chrome.storage.local.get(null, async (result) => {
+      const loadedPasswords: PasswordEntry[] = [];
+
+      // Filter and load only password entries (keys starting with "p")
+      for (const key of Object.keys(result)) {
+        if (key.startsWith("p") && key !== "p") {
+          try {
+            const stored: StoredPasswordEntry = result[key];
+            const decrypted = await decryptPasswordEntry(
+              stored.encryptedData,
+              masterPassword
+            );
+
+            loadedPasswords.push({
+              id: stored.id,
+              domain: decrypted.domain,
+              username: decrypted.username,
+              password: decrypted.password,
+              favicon: stored.favicon,
+              createdAt: stored.createdAt,
+            });
+          } catch (error) {
+            console.error(`Failed to decrypt password ${key}:`, error);
+          }
+        }
+      }
+
+      // Sort by creation date (newest first)
+      loadedPasswords.sort((a, b) => b.createdAt - a.createdAt);
+      setPasswords(loadedPasswords);
     });
+  };
+
+  // Save passwords to Chrome storage (encrypted)
+  const savePasswords = async (newPasswords: PasswordEntry[]) => {
+    if (!masterPassword) return;
+
+    // Create an object with separate keys for each password
+    const storageData: { [key: string]: StoredPasswordEntry } = {};
+
+    for (const entry of newPasswords) {
+      try {
+        const encryptedData = await encryptPasswordEntry(
+          {
+            domain: entry.domain,
+            username: entry.username,
+            password: entry.password,
+          },
+          masterPassword
+        );
+
+        storageData[`p${entry.id}`] = {
+          id: entry.id,
+          encryptedData,
+          favicon: entry.favicon,
+          createdAt: entry.createdAt,
+        };
+      } catch (error) {
+        console.error(`Failed to encrypt password ${entry.id}:`, error);
+      }
+    }
 
     chrome.storage.local.set(storageData);
     setPasswords(newPasswords);
@@ -225,7 +347,7 @@ function App() {
   };
 
   return (
-    <div className="w-96 max-h-[600px] bg-gray-50">
+    <div className="w-96 min-h-[600px] bg-gray-50">
       <div className="bg-sky-700 text-white p-4">
         <div className="flex flex-row justify-between items-start">
           <div>
@@ -237,15 +359,17 @@ function App() {
               />
               <h1 className="text-2xl font-bold">PassMan</h1>
             </div>
-            <p className="text-sm opacity-90">Password Manager</p>
+            <p className="text-sm opacity-90">The password manager from hell</p>
           </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="bg-sky-600 hover:bg-sky-800 text-white font-semibold py-2 px-3 rounded-lg transition text-sm"
-            title={showForm ? "Hide form" : "Add password"}
-          >
-            {showForm ? <FaMinus /> : <FaPlus />}
-          </button>
+          {!isLocked && (
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="bg-sky-600 hover:bg-sky-800 text-white font-semibold py-2 px-3 rounded-lg transition text-sm"
+              title={showForm ? "Hide form" : "Add password"}
+            >
+              {showForm ? <FaMinus /> : <FaPlus />}
+            </button>
+          )}
         </div>
       </div>
 
@@ -258,25 +382,33 @@ function App() {
         />
       )}
 
-      <PasswordForm
+      {/* Master Password Prompt */}
+      {isLocked && (
+        <MasterPasswordPrompt
+          isSetup={isSetup}
+          onSubmit={handleMasterPasswordSubmit}
+          error={authError}
+        />
+      )}
+
+      {(showForm && !isLocked) && <PasswordForm
         domain={domain}
         username={username}
         password={password}
-        showForm={showForm}
         onDomainChange={setDomain}
         onUsernameChange={setUsername}
         onPasswordChange={setPassword}
         onSubmit={addPassword}
-      />
+      />}
 
-      <div className="p-4 overflow-y-auto max-h-[400px]">
+
+      {!isLocked && (<div className="p-4 overflow-y-auto max-h-[400px]">
         <h2 className="text-lg font-semibold mb-3">
           Saved Passwords ({passwords.length})
         </h2>
         {passwords.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
-            <p>No passwords saved yet</p>
-            <p className="text-sm">Add your first password above</p>
+            <p className="text-xl">No passwords saved yet</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -293,7 +425,7 @@ function App() {
             ))}
           </div>
         )}
-      </div>
+      </div>)}
     </div>
   );
 }

@@ -2,7 +2,6 @@ interface PasswordFormProps {
   domain: string;
   username: string;
   password: string;
-  showForm: boolean;
   onDomainChange: (value: string) => void;
   onUsernameChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
@@ -13,14 +12,13 @@ function PasswordForm({
   domain,
   username,
   password,
-  showForm,
   onDomainChange,
   onUsernameChange,
   onPasswordChange,
   onSubmit,
 }: PasswordFormProps) {
   return (
-    <div className={`p-4 bg-white shadow-md ${showForm ? '' : 'hidden'}`}>
+    <div className="p-4 bg-white shadow-md">
       <h2 className="text-lg font-semibold mb-3">Add New Password</h2>
       <div className="flex flex-col gap-2">
         <input
