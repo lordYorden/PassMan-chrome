@@ -11,10 +11,13 @@ export default defineConfig({
       input: {
         main: './index.html',
         content: './src/content.ts',
+        background: './src/background.ts',
       },
       output: {
         entryFileNames: (chunkInfo) => {
-          return chunkInfo.name === 'content' ? 'src/[name].js' : 'assets/[name]-[hash].js';
+          return chunkInfo.name === 'content' || chunkInfo.name === 'background' 
+            ? 'src/[name].js' 
+            : 'assets/[name]-[hash].js';
         },
       },
     },
