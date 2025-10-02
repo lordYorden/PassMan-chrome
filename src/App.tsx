@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import passManLogo from "./assets/passman-logo.svg";
+import { FaMinus, FaPlus } from "react-icons/fa";
 
 interface PasswordEntry {
   id: string;
@@ -14,6 +15,7 @@ function App() {
   const [domain, setDomain] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
+  const [showForm, setShowForm] = useState(false);
 
   // Load passwords from Chrome storage and get current tab domain
   useEffect(() => {
@@ -99,15 +101,26 @@ function App() {
     <div className="w-96 max-h-[600px] bg-gray-50">
       {/* Header */}
       <div className="bg-sky-700 text-white p-4">
-        <div className="flex flex-row gap-1 items-center">
-          <img src={passManLogo} alt="PassMan Logo" className="w-6 h-6 inline-block" />
-          <h1 className="text-2xl font-bold">PassMan</h1>
+        <div className="flex flex-row justify-between items-start">
+          <div>
+            <div className="flex flex-row gap-1 items-center">
+              <img src={passManLogo} alt="PassMan Logo" className="w-6 h-6 inline-block" />
+              <h1 className="text-2xl font-bold">PassMan</h1>
+            </div>
+            <p className="text-sm opacity-90">Password Manager</p>
+          </div>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="bg-sky-600 hover:bg-sky-800 text-white font-semibold py-2 px-3 rounded-lg transition text-sm"
+            title={showForm ? "Hide form" : "Add password"}
+          >
+            {showForm ? <FaMinus /> : <FaPlus />}
+          </button>
         </div>
-        <p className="text-sm opacity-90">Password Manager</p>
       </div>
 
       {/* Add Password Form */}
-      <div className="p-4 bg-white shadow-md hidden">
+      <div className={`p-4 bg-white shadow-md ${showForm ? '' : 'hidden'}`}>
         <h2 className="text-lg font-semibold mb-3">Add New Password</h2>
         <div className="flex flex-col gap-2">
           <input
