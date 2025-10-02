@@ -3,6 +3,7 @@ import PasswordActions from "./PasswordActions";
 interface PasswordEntry {
   id: string;
   domain: string;
+  username: string;
   password: string;
   favicon: string;
   createdAt: number;
@@ -38,9 +39,9 @@ function PasswordItem({
           }}
         />
 
-        {/* Domain and Password */}
+        {/* Username and Password */}
         <div className="flex-1">
-          <div className="font-semibold text-gray-800">{entry.domain}</div>
+          <div className="font-semibold text-gray-800">{entry.username}</div>
           <div className="text-sm text-gray-600 flex items-center gap-2">
             <span className="font-mono">
               {isPasswordVisible

@@ -4,7 +4,7 @@ console.log("[PassMan] Content script loaded on:", window.location.href);
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.action === "autofill") {
     
-    const { domain, password } = message;
+    const { username, password } = message;
     
     let filledFields: string[] = [];
     let errors: string[] = [];
@@ -14,7 +14,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     
     
     if (usernameField) {
-      fillField(usernameField, domain);
+      fillField(usernameField, username);
       triggerInputEvent(usernameField);
       filledFields.push("username");
       

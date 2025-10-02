@@ -1,17 +1,21 @@
 interface PasswordFormProps {
   domain: string;
+  username: string;
   password: string;
   showForm: boolean;
   onDomainChange: (value: string) => void;
+  onUsernameChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onSubmit: () => void;
 }
 
 function PasswordForm({
   domain,
+  username,
   password,
   showForm,
   onDomainChange,
+  onUsernameChange,
   onPasswordChange,
   onSubmit,
 }: PasswordFormProps) {
@@ -21,9 +25,9 @@ function PasswordForm({
       <div className="flex flex-col gap-2">
         <input
           type="text"
-          placeholder="Domain (e.g., google.com)"
-          value={domain}
-          onChange={(e) => onDomainChange(e.target.value)}
+          placeholder="Username or Email"
+          value={username}
+          onChange={(e) => onUsernameChange(e.target.value)}
           className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
         />
         <input
@@ -31,6 +35,13 @@ function PasswordForm({
           placeholder="Password"
           value={password}
           onChange={(e) => onPasswordChange(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+        />
+        <input
+          type="text"
+          placeholder="Domain (e.g., google.com)"
+          value={domain}
+          onChange={(e) => onDomainChange(e.target.value)}
           className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
         />
         <button

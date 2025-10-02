@@ -7,6 +7,7 @@ import PasswordItem from "./components/PasswordItem";
 interface PasswordEntry {
   id: string;
   domain: string;
+  username: string;
   password: string;
   favicon: string;
   createdAt: number;
@@ -15,6 +16,7 @@ interface PasswordEntry {
 function App() {
   const [passwords, setPasswords] = useState<PasswordEntry[]>([]);
   const [domain, setDomain] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
   const [showForm, setShowForm] = useState(false);
@@ -60,14 +62,15 @@ function App() {
 
   // Add new password entry
   const addPassword = () => {
-    if (!domain || !password) {
-      alert("Please enter both domain and password");
+    if (!domain || !username || !password) {
+      alert("Please enter domain, username, and password");
       return;
     }
 
     const newEntry: PasswordEntry = {
       id: Date.now().toString(),
       domain: domain,
+      username: username,
       password: password,
       favicon: getFaviconUrl(domain),
       createdAt: Date.now(),
@@ -76,6 +79,7 @@ function App() {
     const updatedPasswords = [...passwords, newEntry];
     savePasswords(updatedPasswords);
     setDomain("");
+    setUsername("");
     setPassword("");
   };
 
@@ -115,6 +119,7 @@ function App() {
         {
           action: "autofill",
           domain: entry.domain,
+          username: entry.username,
           password: entry.password,
         },
         (response) => {
@@ -158,9 +163,11 @@ function App() {
 
       <PasswordForm
         domain={domain}
+        username={username}
         password={password}
         showForm={showForm}
         onDomainChange={setDomain}
+        onUsernameChange={setUsername}
         onPasswordChange={setPassword}
         onSubmit={addPassword}
       />
