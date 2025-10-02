@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "PassMan",
+  "version": "1.0.0",
+  "description": "A basic password manager project",
+  "icons": {
+    "16": "icons/passman16.png",
+    "32": "icons/passman32.png",
+    "48": "icons/passman48.png",
+    "128": "icons/passman128.png"
+  },
+  "action": {
+    "default_popup": "index.html"
+  },
+  "permissions": ["scripting"],
+  "host_permissions": ["http://*/*", "https://*/*"]
+}
