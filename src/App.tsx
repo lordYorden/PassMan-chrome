@@ -3,6 +3,7 @@ import passManLogo from "./assets/passman-logo.svg";
 import { FaMinus, FaPlus } from "react-icons/fa";
 import PasswordForm from "./components/PasswordForm";
 import PasswordItem from "./components/PasswordItem";
+import SavePrompt from "./components/SavePrompt";
 import MasterPasswordPrompt from "./components/MasterPasswordPrompt";
 import {
   encryptPasswordEntry,
@@ -20,15 +21,25 @@ interface StoredPasswordEntry {
   createdAt: number;
 }
 
+interface PendingCredentials {
+  domain: string;
+  username: string;
+  password: string;
+  timestamp: number;
+}
+
 function App() {
   const [passwords, setPasswords] = useState<PasswordEntry[]>([]);
   const [domain, setDomain] = useState("");
+  const [favicon, setFavicon] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>(
     {}
   );
   const [showForm, setShowForm] = useState(false);
+  const [pendingCredentials, setPendingCredentials] =
+    useState<PendingCredentials | null>(null);
 
   // Master password state
   const [isLocked, setIsLocked] = useState(true);
@@ -38,6 +49,27 @@ function App() {
 
   // Check if master password is set up
   useEffect(() => {
+    //Load saved passwords from separate storage keys
+    chrome.storage.local.get(null, (result) => {
+      //Check for pending credentials from form submission
+      if (result["_pending"]) {
+        console.log(
+          "[PassMan] Found pending credentials:",
+          result["_pending"]
+        );
+        const pending = result["_pending"] as PendingCredentials;
+        //Only show if captured within the last 5 minutes
+        const age = Date.now() - pending.timestamp;
+
+        if (age < 5 * 60 * 1000) {
+          setPendingCredentials(pending);
+        } else {
+          //Clear old pending credentials
+          chrome.storage.local.remove("_pending");
+        }
+      }
+    }
+
     chrome.storage.local.get(["masterPasswordVerifier"], (result) => {
       if (!result.masterPasswordVerifier) {
         setIsSetup(true);
@@ -47,6 +79,7 @@ function App() {
         setIsLocked(true);
       }
     });
+    
   }, []);
 
   // Load and decrypt passwords when unlocked
@@ -64,6 +97,7 @@ function App() {
         try {
           const url = new URL(tabs[0].url);
           setDomain(url.hostname);
+          setFavicon(tabs[0].favIconUrl || getFaviconUrl(url.hostname));
         } catch (error) {
           console.error("Error parsing URL:", error);
         }
@@ -206,7 +240,7 @@ function App() {
       domain: domain,
       username: username,
       password: password,
-      favicon: getFaviconUrl(domain),
+      favicon: favicon || getFaviconUrl(domain),
       createdAt: Date.now(),
     };
 
@@ -270,7 +304,6 @@ function App() {
             console.error(chrome.runtime.lastError);
           } else if (response?.success) {
             //Optional: Show success feedback
-            console.log("Auto-filled successfully!");
           } else {
             alert(
               response?.message || "Could not find login fields on this page"
@@ -282,6 +315,35 @@ function App() {
       console.error("Error auto-filling:", error);
       alert("An error occurred while trying to auto-fill");
     }
+  };
+
+  //Save pending credentials
+  const savePendingCredentials = () => {
+    if (!pendingCredentials) return;
+
+    const newEntry: PasswordEntry = {
+      id: crypto.randomUUID(),
+      domain: pendingCredentials.domain,
+      username: pendingCredentials.username,
+      password: pendingCredentials.password,
+      favicon: favicon || getFaviconUrl(pendingCredentials.domain),
+      createdAt: Date.now(),
+    };
+
+    const updatedPasswords = [newEntry, ...passwords];
+    savePasswords(updatedPasswords);
+
+    //Clear pending credentials and badge
+    chrome.storage.local.remove("_pending");
+    chrome.action.setBadgeText({ text: "" });
+    setPendingCredentials(null);
+  };
+
+  //Dismiss pending credentials prompt
+  const dismissPendingCredentials = () => {
+    chrome.storage.local.remove("_pending");
+    chrome.action.setBadgeText({ text: "" });
+    setPendingCredentials(null);
   };
 
   return (
@@ -311,6 +373,15 @@ function App() {
         </div>
       </div>
 
+      {pendingCredentials && (
+        <SavePrompt
+          domain={pendingCredentials.domain}
+          username={pendingCredentials.username}
+          onSave={savePendingCredentials}
+          onDismiss={dismissPendingCredentials}
+        />
+      )}
+
       {/* Master Password Prompt */}
       {isLocked && (
         <MasterPasswordPrompt
@@ -329,6 +400,7 @@ function App() {
         onPasswordChange={setPassword}
         onSubmit={addPassword}
       />}
+
 
       {!isLocked && (<div className="p-4 overflow-y-auto max-h-[400px]">
         <h2 className="text-lg font-semibold mb-3">
