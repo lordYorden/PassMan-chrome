@@ -140,6 +140,12 @@ function captureCredentials() {
 function storeCredentials(username: string, password: string) {
   const domain = window.location.hostname;
 
+  // Check if extension context is still valid
+  if (!chrome.runtime?.id) {
+    console.error("[PassMan] Extension context invalidated, cannot save credentials");
+    return;
+  }
+
   const pendingCredentials = {
     domain,
     username,
@@ -147,18 +153,20 @@ function storeCredentials(username: string, password: string) {
     timestamp: Date.now(),
   };
 
-  chrome.storage.local.set({ "_pending": pendingCredentials }, () => {
-    //Send message to background script to open popup
-    chrome.runtime.sendMessage({ action: "openPopup" }, () => {
+  try {
+    chrome.storage.local.set({ "_pending": pendingCredentials }, () => {
       if (chrome.runtime.lastError) {
         console.error(
-          "[PassMan] Could not send message to background:",
+          "[PassMan] Could not save pending credentials:",
           chrome.runtime.lastError
         );
       } else {
+        console.log("[PassMan] Pending credentials saved");
       }
     });
-  });
+  } catch (error) {
+    console.error("[PassMan] Extension context invalidated during storage operation");
+  }
 }
 
 
