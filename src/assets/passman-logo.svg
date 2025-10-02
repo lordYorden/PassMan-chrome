@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+
+<svg
+   width="512"
+   height="512"
+   viewBox="0 0 655.36 655.36"
+   class="icon"
+   version="1.1"
+   id="svg3"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs3">
+    <linearGradient
+       id="swatch4">
+      <stop
+         style="stop-color:#000000;stop-opacity:1;"
+         offset="0"
+         id="stop4" />
+    </linearGradient>
+  </defs>
+  <g
+     id="g4"
+     transform="matrix(0.41942811,0,0,0.41942811,112.93282,112.93282)">
+    <path
+       d="m 512,85.333333 c -117.33333,0 -213.33333,95.999997 -213.33333,213.333337 V 384 H 384 v -85.33333 c 0,-70.4 57.6,-128 128,-128 70.4,0 128,57.6 128,128 V 384 h 85.33333 v -85.33333 c 0,-117.33334 -96,-213.333336 -213.33333,-213.333337 z"
+       fill="#424242"
+       id="path1" />
+    <path
+       d="M 768,938.66667 H 256 c -46.93333,0 -85.33333,-38.4 -85.33333,-85.33334 v -384 C 170.66667,422.4 209.06667,384 256,384 h 512 c 46.93333,0 85.33333,38.4 85.33333,85.33333 v 384 c 0,46.93334 -38.4,85.33334 -85.33333,85.33334 z"
+       fill="#2caeff"
+       id="path2" />
+    <path
+       d="m 512,661.33333 m -64,0 a 64,64 0 1 0 128,0 64,64 0 1 0 -128,0 z"
+       fill="#248ccc"
+       id="path3" />
+  </g>
+  <circle
+     style="fill:none;stroke:#2caeff;stroke-width:52.1949;stroke-dasharray:none;stroke-opacity:1"
+     id="path4"
+     cx="327.67999"
+     cy="327.67999"
+     r="301.58255" />
+</svg>
