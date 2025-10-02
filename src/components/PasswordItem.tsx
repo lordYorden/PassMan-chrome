@@ -1,13 +1,5 @@
 import PasswordActions from "./PasswordActions";
-
-interface PasswordEntry {
-  id: string;
-  domain: string;
-  username: string;
-  password: string;
-  favicon: string;
-  createdAt: number;
-}
+import type { PasswordEntry } from "../types";
 
 interface PasswordItemProps {
   entry: PasswordEntry;
