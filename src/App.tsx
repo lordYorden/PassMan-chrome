@@ -54,7 +54,7 @@ function App() {
     if (!isLocked && masterPassword) {
       loadPasswords();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [isLocked, masterPassword]);
 
   // Get current tab's domain on mount
@@ -297,7 +297,7 @@ function App() {
               />
               <h1 className="text-2xl font-bold">PassMan</h1>
             </div>
-            <p className="text-sm opacity-90">Password Manager</p>
+            <p className="text-sm opacity-90">The password manager from hell</p>
           </div>
           {!isLocked && (
             <button

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaTimes } from 'react-icons/fa';
+import PasswordValidator, { usePasswordStrength } from './PasswordValidator';
 
 interface MasterPasswordPromptProps {
   isSetup: boolean; // true if setting up for first time, false if unlocking
@@ -12,17 +13,26 @@ function MasterPasswordPrompt({ isSetup, onSubmit, error }: MasterPasswordPrompt
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confirmTouched, setConfirmTouched] = useState(false);
+
+  const MIN_PASSWORD_LENGTH = 8;
+  const passwordStrength = usePasswordStrength(password, MIN_PASSWORD_LENGTH);
+  const passwordsMatch = password === confirmPassword;
+  const showPasswordError = isSetup && passwordTouched && password.length > 0 && !passwordStrength.isStrong;
+  const showConfirmError = isSetup && confirmTouched && confirmPassword.length > 0 && !passwordsMatch;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (isSetup) {
-      if (password !== confirmPassword) {
-        alert('Passwords do not match!');
+      setPasswordTouched(true);
+      setConfirmTouched(true);
+      
+      if (!passwordStrength.isStrong) {
         return;
       }
-      if (password.length < 8) {
-        alert('Master password must be at least 8 characters long');
+      if (!passwordsMatch) {
         return;
       }
     }
@@ -32,12 +42,6 @@ function MasterPasswordPrompt({ isSetup, onSubmit, error }: MasterPasswordPrompt
 
   return (
     <div className="p-6 bg-white">
-      <div className="flex items-center justify-center mb-4">
-        <div className="bg-sky-100 p-3 rounded-full">
-          <FaLock className="text-sky-700 text-2xl" />
-        </div>
-      </div>
-      
       <h2 className="text-xl font-bold text-center mb-2">
         {isSetup ? 'Create Master Password' : 'Unlock PassMan'}
       </h2>
@@ -64,7 +68,12 @@ function MasterPasswordPrompt({ isSetup, onSubmit, error }: MasterPasswordPrompt
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 pr-10"
+                onBlur={() => setPasswordTouched(true)}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 pr-10 ${
+                  showPasswordError
+                    ? 'border-red-300 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-sky-500'
+                }`}
                 placeholder="Enter master password"
                 autoFocus
                 required
@@ -77,6 +86,8 @@ function MasterPasswordPrompt({ isSetup, onSubmit, error }: MasterPasswordPrompt
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
             </div>
+            
+            {isSetup && <PasswordValidator strength={passwordStrength} />}
           </div>
 
           {isSetup && (
@@ -89,7 +100,12 @@ function MasterPasswordPrompt({ isSetup, onSubmit, error }: MasterPasswordPrompt
                   type={showConfirm ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 pr-10"
+                  onBlur={() => setConfirmTouched(true)}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 pr-10 ${
+                    showConfirmError
+                      ? 'border-red-300 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-sky-500'
+                  }`}
                   placeholder="Confirm master password"
                   required
                 />
@@ -101,6 +117,12 @@ function MasterPasswordPrompt({ isSetup, onSubmit, error }: MasterPasswordPrompt
                   {showConfirm ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
+              {showConfirmError && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                  <FaTimes className="text-red-600" />
+                  Passwords do not match
+                </p>
+              )}
             </div>
           )}
 
@@ -112,7 +134,8 @@ function MasterPasswordPrompt({ isSetup, onSubmit, error }: MasterPasswordPrompt
 
           <button
             type="submit"
-            className="w-full bg-sky-700 text-white font-semibold py-2 px-4 rounded-lg hover:bg-sky-800 transition mt-4"
+            disabled={isSetup && (!passwordStrength.isStrong || !passwordsMatch)}
+            className="w-full bg-sky-700 text-white font-semibold py-2 px-4 rounded-lg hover:bg-sky-800 transition mt-4 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
           {isSetup ? 'Create & Encrypt' : 'Unlock'}
         </button>

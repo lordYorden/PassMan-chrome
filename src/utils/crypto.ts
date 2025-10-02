@@ -4,7 +4,7 @@ import { argon2id } from '@noble/hashes/argon2.js';
 
 //OWASP recommendations for client-side use
 const ARGON2_ITERATIONS = 2;
-const ARGON2_MEMORY = 16 * 1024;
+const ARGON2_MEMORY = 19 * 1024;
 const ARGON2_PARALLELISM = 1; //single threaded for browser
 const KEY_LENGTH = 32;
 
@@ -144,10 +144,12 @@ export async function createPasswordVerifier(
 
 // Helper functions for base64 encoding/decoding
 function arrayBufferToBase64(buffer: Uint8Array): string {
-  const binary = String.fromCharCode(...buffer);
+  let binary = '';
+  for (let i = 0; i < buffer.length; i++) {
+    binary += String.fromCharCode(buffer[i]);
+  }
   return btoa(binary);
 }
-
 function base64ToArrayBuffer(base64: string): Uint8Array {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
