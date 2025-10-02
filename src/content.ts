@@ -1,9 +1,17 @@
 console.log("[PassMan] Content script loaded on:", window.location.href);
 
+let isInitialized = false;
+
 /**
  * Listen for form submissions to capture login details
  */
 function setupFormListeners() {
+  if (isInitialized) {
+    console.log("[PassMan] Form listeners already initialized, skipping");
+    return;
+  }
+  isInitialized = true;
+
   const forms = document.querySelectorAll("form");
 
   forms.forEach((form) => {
@@ -21,11 +29,17 @@ function setupFormListeners() {
   observeDynamicElements();
 }
 
+let domObserver: MutationObserver | null = null;
 /**
  * Observe for dynamically added forms and buttons
  */
 function observeDynamicElements() {
-  const observer = new MutationObserver((mutations) => {
+  if (domObserver) {
+    console.log("[PassMan] DOM observer already initialized, skipping");
+    return;
+  }
+
+  domObserver = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       mutation.addedNodes.forEach((node) => {
         if (node.nodeType === Node.ELEMENT_NODE) {
@@ -64,7 +78,7 @@ function observeDynamicElements() {
     });
   });
 
-  observer.observe(document.body, {
+  domObserver.observe(document.body, {
     childList: true,
     subtree: true,
   });
@@ -75,11 +89,8 @@ function observeDynamicElements() {
  * @param _event onclick event 
  */
 function handleButtonClick(_event: Event) {
-  setTimeout(() => {
-    captureCredentials();
-  }, 100);
+  captureCredentials();
 }
-
 /**
  * Handle form submission
  * @param event form submit event
@@ -136,7 +147,7 @@ function storeCredentials(username: string, password: string) {
     timestamp: Date.now(),
   };
 
-  chrome.storage.local.set({ pendingCredentials: pendingCredentials }, () => {
+  chrome.storage.local.set({ "_pending": pendingCredentials }, () => {
     //Send message to background script to open popup
     chrome.runtime.sendMessage({ action: "openPopup" }, () => {
       if (chrome.runtime.lastError) {
@@ -285,8 +296,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 /**
- * Find the username field within a specific form.
- * @param container - The form element to search within.
+ * Find the username field anywhere in the document.
  * @returns The found username input field or null.
  */
 function findUsernameField(): HTMLInputElement | null {
@@ -294,14 +304,12 @@ function findUsernameField(): HTMLInputElement | null {
 }
 
 /**
- * Find the password field within a specific form.
- * @param container - The form element to search within.
+ * Find the password field anywhere in the document.
  * @returns The found password input field or null.
  */
 function findPasswordField(): HTMLInputElement | null {
   return findField(PASSWORD_SELECTORS, document, false);
 }
-
 /**
  * Check if an element is visible on the page.
  * @param element - The element to check.

@@ -39,24 +39,21 @@ function App() {
     chrome.storage.local.get(null, (result) => {
       const loadedPasswords: PasswordEntry[] = [];
 
-      //Filter and load only password entries (keys starting with "p" but not "pendingCredentials")
       Object.keys(result).forEach((key) => {
-        if (key.startsWith("p") && key !== "pendingCredentials") {
+        if (key.startsWith("p")) {
           loadedPasswords.push(result[key]);
         }
       });
 
-      //Sort by creation date (newest first)
-      loadedPasswords.sort((a, b) => b.createdAt - a.createdAt);
       setPasswords(loadedPasswords);
 
       //Check for pending credentials from form submission
-      if (result.pendingCredentials) {
+      if (result["_pending"]) {
         console.log(
           "[PassMan] Found pending credentials:",
-          result.pendingCredentials
+          result["_pending"]
         );
-        const pending = result.pendingCredentials as PendingCredentials;
+        const pending = result["_pending"] as PendingCredentials;
         //Only show if captured within the last 5 minutes
         const age = Date.now() - pending.timestamp;
 
@@ -64,9 +61,8 @@ function App() {
           setPendingCredentials(pending);
         } else {
           //Clear old pending credentials
-          chrome.storage.local.remove("pendingCredentials");
+          chrome.storage.local.remove("_pending");
         }
-      } else {
       }
     });
 
@@ -216,14 +212,14 @@ function App() {
     savePasswords(updatedPasswords);
 
     //Clear pending credentials and badge
-    chrome.storage.local.remove("pendingCredentials");
+    chrome.storage.local.remove("_pending");
     chrome.action.setBadgeText({ text: "" });
     setPendingCredentials(null);
   };
 
   //Dismiss pending credentials prompt
   const dismissPendingCredentials = () => {
-    chrome.storage.local.remove("pendingCredentials");
+    chrome.storage.local.remove("_pending");
     chrome.action.setBadgeText({ text: "" });
     setPendingCredentials(null);
   };

@@ -20,8 +20,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 //Listen for storage changes to detect new pending credentials
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === "local" && changes.pendingCredentials) {
-    const newValue = changes.pendingCredentials.newValue;
+  if (areaName === "local" && changes["_pending"]) {
+    const newValue = changes["_pending"].newValue;
 
     if (newValue) {
       console.log("[PassMan] New pending credentials detected, opening popup");
@@ -37,9 +37,4 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       chrome.action.setBadgeText({ text: "" });
     }
   }
-});
-
-//Clear badge when popup is opened
-chrome.action.onClicked.addListener(() => {
-  chrome.action.setBadgeText({ text: "" });
 });
