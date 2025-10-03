@@ -47,16 +47,11 @@ function App() {
   const [masterPassword, setMasterPassword] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | undefined>(undefined);
 
-  // Check if master password is set up
   useEffect(() => {
-    //Load saved passwords from separate storage keys
     chrome.storage.local.get(null, (result) => {
       //Check for pending credentials from form submission
       if (result["_pending"]) {
-        console.log(
-          "[PassMan] Found pending credentials:",
-          result["_pending"]
-        );
+        console.log("[PassMan] Found pending credentials:", result["_pending"]);
         const pending = result["_pending"] as PendingCredentials;
         //Only show if captured within the last 5 minutes
         const age = Date.now() - pending.timestamp;
@@ -79,7 +74,6 @@ function App() {
         setIsLocked(true);
       }
     });
-    
   }, []);
 
   // Load and decrypt passwords when unlocked
@@ -87,10 +81,9 @@ function App() {
     if (!isLocked && masterPassword) {
       loadPasswords();
     }
-    
   }, [isLocked, masterPassword]);
 
-  // Get current tab's domain on mount
+  // Get current tab's domain and favicon on mount
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.url) {
@@ -105,12 +98,14 @@ function App() {
     });
   }, []);
 
-  // Handle master password setup or unlock
+  /**
+   * Handle master password setup or unlock
+   * @param password The master password entered by the user
+   */
   const handleMasterPasswordSubmit = async (password: string) => {
     setAuthError(undefined);
 
     if (isSetup) {
-      // Setup: Create new master password
       try {
         const verifier = await createPasswordVerifier(password);
         chrome.storage.local.set({ masterPasswordVerifier: verifier }, () => {
@@ -122,7 +117,6 @@ function App() {
         setAuthError("Failed to create master password");
       }
     } else {
-      // Unlock: Verify master password
       chrome.storage.local.get(["masterPasswordVerifier"], async (result) => {
         if (!result.masterPasswordVerifier) {
           setAuthError("Master password not set up");
@@ -144,7 +138,9 @@ function App() {
     }
   };
 
-  // Load and decrypt passwords
+  /**
+   * Load and decrypt passwords from Chrome storage
+   */
   const loadPasswords = async () => {
     if (!masterPassword) return;
 
@@ -181,40 +177,44 @@ function App() {
     });
   };
 
-  // Save passwords to Chrome storage (encrypted)
-  const savePasswords = async (newPasswords: PasswordEntry[]) => {
+  /**
+   * Save a new or modified password entry to Chrome storage
+   * @param entry The password entry to save
+   * @returns A promise that resolves when the entry is saved
+   */
+  const savePasswordEntry = async (entry: PasswordEntry) => {
     if (!masterPassword) return;
 
-    // Create an object with separate keys for each password
-    const storageData: { [key: string]: StoredPasswordEntry } = {};
+    try {
+      const encryptedData = await encryptPasswordEntry(
+        {
+          domain: entry.domain,
+          username: entry.username,
+          password: entry.password,
+        },
+        masterPassword
+      );
 
-    for (const entry of newPasswords) {
-      try {
-        const encryptedData = await encryptPasswordEntry(
-          {
-            domain: entry.domain,
-            username: entry.username,
-            password: entry.password,
-          },
-          masterPassword
-        );
+      const storageData: StoredPasswordEntry = {
+        id: entry.id,
+        encryptedData,
+        favicon: entry.favicon,
+        createdAt: entry.createdAt,
+      };
 
-        storageData[`p${entry.id}`] = {
-          id: entry.id,
-          encryptedData,
-          favicon: entry.favicon,
-          createdAt: entry.createdAt,
-        };
-      } catch (error) {
-        console.error(`Failed to encrypt password ${entry.id}:`, error);
-      }
+      // Save only this one entry to storage
+      await chrome.storage.local.set({ [`p${entry.id}`]: storageData });
+    } catch (error) {
+      console.error(`Failed to encrypt password ${entry.id}:`, error);
+      throw error;
     }
-
-    chrome.storage.local.set(storageData);
-    setPasswords(newPasswords);
   };
 
-  //Get favicon URL for a domain
+  /**
+   * Get favicon URL for a domain, backup for chrome's favicon API
+   * @param domain The domain to get the favicon for
+   * @returns the favicon URL
+   */
   const getFaviconUrl = (domain: string): string => {
     try {
       //Remove protocol if present
@@ -228,8 +228,10 @@ function App() {
     }
   };
 
-  //Add new password entry
-  const addPassword = () => {
+  /**
+   * Add a new password entry from credentials form
+   */
+  const addPassword = async () => {
     if (!domain || !username || !password) {
       alert("Please enter domain, username, and password");
       return;
@@ -244,14 +246,21 @@ function App() {
       createdAt: Date.now(),
     };
 
-    const updatedPasswords = [...passwords, newEntry];
-    savePasswords(updatedPasswords);
+    await savePasswordEntry(newEntry);
+    
+    setPasswords([newEntry, ...passwords]);
     setDomain("");
     setUsername("");
     setPassword("");
+
+    //verify state
+    loadPasswords();
   };
 
-  //Delete password entry
+  /**
+   * Delete a password entry by ID
+   * @param id The ID of the password entry to delete
+   */
   const deletePassword = (id: string) => {
     //Remove the specific password entry from storage
     chrome.storage.local.remove(`p${id}`);
@@ -268,12 +277,18 @@ function App() {
     }));
   };
 
-  //Copy password to clipboard
+  /**
+   * Helper function - copy text to clipboard
+   * @param text text to copy
+   */
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
 
-  //Auto-fill credentials on the current page
+  /**
+   * auto-fill credentials on the current page
+   * @param entry The password entry to auto-fill
+   */
   const autoFillCredentials = async (entry: PasswordEntry) => {
     try {
       //Get the active tab
@@ -317,8 +332,10 @@ function App() {
     }
   };
 
-  //Save pending credentials
-  const savePendingCredentials = () => {
+  /**
+   * Save pending credentials to storage as a new password entry
+   */
+  const savePendingCredentials = async () => {
     if (!pendingCredentials) return;
 
     const newEntry: PasswordEntry = {
@@ -330,16 +347,21 @@ function App() {
       createdAt: Date.now(),
     };
 
-    const updatedPasswords = [newEntry, ...passwords];
-    savePasswords(updatedPasswords);
+    await savePasswordEntry(newEntry);
+    setPasswords([newEntry, ...passwords]);
 
     //Clear pending credentials and badge
     chrome.storage.local.remove("_pending");
     chrome.action.setBadgeText({ text: "" });
     setPendingCredentials(null);
+
+    //verify state
+    loadPasswords();
   };
 
-  //Dismiss pending credentials prompt
+  /**
+   * Dismiss pending credentials prompt and delete them from storage
+   */
   const dismissPendingCredentials = () => {
     chrome.storage.local.remove("_pending");
     chrome.action.setBadgeText({ text: "" });
@@ -373,7 +395,7 @@ function App() {
         </div>
       </div>
 
-      {(pendingCredentials && !isLocked) && (
+      {pendingCredentials && !isLocked && (
         <SavePrompt
           domain={pendingCredentials.domain}
           username={pendingCredentials.username}
@@ -391,41 +413,44 @@ function App() {
         />
       )}
 
-      {(showForm && !isLocked) && <PasswordForm
-        domain={domain}
-        username={username}
-        password={password}
-        onDomainChange={setDomain}
-        onUsernameChange={setUsername}
-        onPasswordChange={setPassword}
-        onSubmit={addPassword}
-      />}
+      {showForm && !isLocked && (
+        <PasswordForm
+          domain={domain}
+          username={username}
+          password={password}
+          onDomainChange={setDomain}
+          onUsernameChange={setUsername}
+          onPasswordChange={setPassword}
+          onSubmit={addPassword}
+        />
+      )}
 
-
-      {!isLocked && (<div className="p-4 overflow-y-auto max-h-[400px]">
-        <h2 className="text-lg font-semibold mb-3">
-          Saved Passwords ({passwords.length})
-        </h2>
-        {passwords.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            <p className="text-xl">No passwords saved yet</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {passwords.map((entry) => (
-              <PasswordItem
-                key={entry.id}
-                entry={entry}
-                isPasswordVisible={showPassword[entry.id] || false}
-                onToggleVisibility={() => togglePasswordVisibility(entry.id)}
-                onAutoFill={() => autoFillCredentials(entry)}
-                onCopy={() => copyToClipboard(entry.password)}
-                onDelete={() => deletePassword(entry.id)}
-              />
-            ))}
-          </div>
-        )}
-      </div>)}
+      {!isLocked && (
+        <div className="p-4 overflow-y-auto max-h-[400px]">
+          <h2 className="text-lg font-semibold mb-3">
+            Saved Passwords ({passwords.length})
+          </h2>
+          {passwords.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              <p className="text-xl">No passwords saved yet</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {passwords.map((entry) => (
+                <PasswordItem
+                  key={entry.id}
+                  entry={entry}
+                  isPasswordVisible={showPassword[entry.id] || false}
+                  onToggleVisibility={() => togglePasswordVisibility(entry.id)}
+                  onAutoFill={() => autoFillCredentials(entry)}
+                  onCopy={() => copyToClipboard(entry.password)}
+                  onDelete={() => deletePassword(entry.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
