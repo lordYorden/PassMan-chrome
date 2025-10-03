@@ -347,18 +347,22 @@ function App() {
       createdAt: Date.now(),
     };
 
-    await savePasswordEntry(newEntry);
-    setPasswords([newEntry, ...passwords]);
+    try {
+      await savePasswordEntry(newEntry);
+      setPasswords([newEntry, ...passwords]);
 
-    //Clear pending credentials and badge
-    chrome.storage.local.remove("_pending");
-    chrome.action.setBadgeText({ text: "" });
-    setPendingCredentials(null);
-
-    //verify state
-    loadPasswords();
+      //Clear pending credentials and badge
+      chrome.storage.local.remove("_pending");
+      chrome.action.setBadgeText({ text: "" });
+      setPendingCredentials(null);
+      
+      //verify state
+      loadPasswords();
+    } catch (error) {
+      console.error("Failed to save pending credentials:", error);
+      alert("Failed to save password. Please try again.");
+    }
   };
-
   /**
    * Dismiss pending credentials prompt and delete them from storage
    */

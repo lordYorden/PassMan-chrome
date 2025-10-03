@@ -85,11 +85,16 @@ function observeDynamicElements() {
 }
 
 /**
- * Handle submit button clicks
- * @param _event onclick event 
+ * Handle submit button clicks (fallback for buttons not in a form)
+ * @param event onclick event 
  */
-function handleButtonClick(_event: Event) {
-  captureCredentials();
+function handleButtonClick(event: Event) {
+  const button = event.target as HTMLButtonElement;
+  const form = button.closest('form');
+
+  if (!form) {
+    captureCredentials();
+  }
 }
 /**
  * Handle form submission
@@ -325,14 +330,14 @@ function findPasswordField(): HTMLInputElement | null {
  */
 function isVisible(element: HTMLElement): boolean {
   const style = window.getComputedStyle(element);
+  const isFixed = style.position === 'fixed';
   return (
     style.display !== "none" &&
     style.visibility !== "hidden" &&
     style.opacity !== "0" &&
-    element.offsetParent !== null
+    (element.offsetParent !== null || isFixed)
   );
 }
-
 /**
  * Fill a form field with a value.
  * @param field - The input field to fill.
